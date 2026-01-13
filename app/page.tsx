@@ -15,14 +15,14 @@ const GENRE_ORDER = [
 
 export default function Home() {
   const [prompts, setPrompts] = useState<any[]>([])
-  const [trendingPrompts, setTrendingPrompts] = useState<any[]>([]) // トレンド用
+  const [rankedPrompts, setRankedPrompts] = useState<any[]>([]) // ランキング情報付きデータ
   const [activeGenre, setActiveGenre] = useState(GENRE_ORDER[0])
   const [selectedPromptIds, setSelectedPromptIds] = useState<number[]>([])
   const [copiedType, setCopiedType] = useState<'pos' | 'neg' | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. 全プロンプト取得
+      // 1. 通常のマスタデータ（ネガティブなども含む全量）
       const { data: allData } = await supabase
         .from('m_prompts')
         .select('*')
@@ -30,30 +30,44 @@ export default function Home() {
         .order('prompt_id')
       if (allData) setPrompts(allData)
 
-      // 2. トレンドランキング取得（先ほど作ったViewから）
-      const { data: trendData } = await supabase
-        .from('v_trending_positives') // View名を指定
+      // 2. ジャンル別ランキング情報の取得
+      const { data: rankData } = await supabase
+        .from('v_genre_rankings')
         .select('*')
-      if (trendData) setTrendingPrompts(trendData)
+      if (rankData) setRankedPrompts(rankData)
     }
     fetchData()
   }, [])
 
+  // 表示用データの加工
   const availableGenres = Array.from(new Set(prompts.map(p => p.genre)));
   const sortedGenres = GENRE_ORDER.filter(g => availableGenres.includes(g));
+
+  // --- 🔥 HOTロジック: 選択中ジャンルのTOP3を抽出 ---
+  const hotPrompts = rankedPrompts.filter(p => 
+    p.genre === activeGenre && p.genre_rank <= 3
+  );
   
-  const filteredPrompts = prompts.filter(p => 
-    p.genre === activeGenre && p.genre !== '未分類' && p.genre !== 'ネガティブ'
+  // HOTにあるIDリスト（重複除外用）
+  const hotPromptIds = hotPrompts.map(p => p.prompt_id);
+
+  // --- 通常リスト: 選択中ジャンル かつ HOTに含まれないもの ---
+  const normalPrompts = prompts.filter(p => 
+    p.genre === activeGenre && 
+    !hotPromptIds.includes(p.prompt_id) && // HOTにあるやつは消す
+    p.genre !== '未分類' && 
+    p.genre !== 'ネガティブ'
   );
 
   const negativePrompts = prompts.filter(p => p.genre === 'ネガティブ');
 
+  // トグル操作
   const togglePrompt = (id: number) => {
     setSelectedPromptIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   }
 
+  // クリップボード用テキスト生成
   const selectedObjects = prompts.filter(p => selectedPromptIds.includes(p.prompt_id))
-  
   const posText = selectedObjects.filter(p => p.genre !== 'ネガティブ').map(p => p.token_en).join(', ')
   const negText = selectedObjects.filter(p => p.genre === 'ネガティブ').map(p => p.token_en).join(', ')
 
@@ -115,43 +129,9 @@ export default function Home() {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
-
-        {/* --- 🔥 追加: トレンド（人気）エリア --- */}
-        {trendingPrompts.length > 0 && (
-          <div className="mb-12">
-            <h2 className="text-sm font-bold text-yellow-400 mb-4 uppercase tracking-wider flex items-center gap-2">
-              <span className="text-lg">🔥</span> Trending Now (Top 12)
-              <span className="text-xs text-gray-500 font-normal ml-auto normal-case">迷ったらここから選べば間違いなし</span>
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {trendingPrompts.map(p => {
-                const isSelected = selectedPromptIds.includes(p.prompt_id);
-                return (
-                  <div
-                    key={`trend-${p.prompt_id}`} // ID重複回避のためprefix
-                    onClick={() => togglePrompt(p.prompt_id)}
-                    className={`
-                      relative p-3 rounded-md cursor-pointer border transition-all h-full group
-                      ${isSelected 
-                        ? 'border-yellow-500 bg-yellow-900/20 shadow-[0_0_15px_rgba(234,179,8,0.2)]' 
-                        : 'border-yellow-500/30 bg-yellow-500/5 hover:bg-yellow-500/10 hover:border-yellow-500/60'}
-                    `}
-                  >
-                    <div className="absolute -top-2 -left-2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full z-10">
-                      HOT
-                    </div>
-                    <p className="text-sm font-bold text-gray-200 mb-1">{p.token_jp}</p>
-                    <p className="text-[10px] text-gray-500 font-mono break-words leading-tight">{p.token_en}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        {/* --- トレンドエリア終了 --- */}
-
-        {/* 通常選択エリア */}
-        <div className="mb-10">
+        
+        {/* ジャンルタブエリア */}
+        <div className="mb-8">
           <h2 className="text-sm font-bold text-blue-400 mb-4 uppercase tracking-wider">1. イメージを構築（Positive）</h2>
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
             {sortedGenres.map(genre => (
@@ -167,9 +147,61 @@ export default function Home() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* --- 🔥 HOTエリア（選択中のジャンルで人気TOP3） --- */}
+        {hotPrompts.length > 0 && (
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">👑</span>
+              <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">
+                 {activeGenre} Best Pick
+              </h3>
+              <span className="text-xs text-gray-500 ml-auto">このジャンルの人気TOP3</span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {hotPrompts.map((p, index) => {
+                const isSelected = selectedPromptIds.includes(p.prompt_id);
+                return (
+                  <div
+                    key={`hot-${p.prompt_id}`}
+                    onClick={() => togglePrompt(p.prompt_id)}
+                    className={`
+                      relative p-4 rounded-xl cursor-pointer border-2 transition-all flex items-center justify-between group
+                      ${isSelected 
+                        ? 'border-yellow-500 bg-yellow-900/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]' 
+                        : 'border-yellow-500/40 bg-gradient-to-r from-yellow-900/10 to-transparent hover:border-yellow-400'}
+                    `}
+                  >
+                    {/* 王冠バッジ */}
+                    <div className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-yellow-500 text-black font-black flex items-center justify-center text-sm shadow-lg border-2 border-[#121212] z-10">
+                      {index + 1}
+                    </div>
+
+                    <div>
+                      <p className="text-base font-bold text-white mb-1 group-hover:text-yellow-200 transition-colors">{p.token_jp}</p>
+                      <p className="text-[10px] text-gray-400 font-mono">{p.token_en}</p>
+                    </div>
+                    
+                    {/* チェックマーク */}
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
+                      ${isSelected ? 'bg-yellow-500 border-yellow-500 text-black' : 'border-gray-600 group-hover:border-yellow-500'}`}>
+                      {isSelected && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {/* --- HOTエリア終了 --- */}
+
+        {/* 通常リスト（HOT以外） */}
+        <div className="mb-10">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {filteredPrompts.length > 0 ? (
-              filteredPrompts.map(p => {
+            {normalPrompts.length > 0 ? (
+              normalPrompts.map(p => {
                 const isSelected = selectedPromptIds.includes(p.prompt_id);
                 return (
                   <div
@@ -191,9 +223,12 @@ export default function Home() {
                 );
               })
             ) : (
-              <div className="col-span-full text-center text-gray-600 py-10 border border-dashed border-gray-800 rounded-lg">
-                このジャンルのデータはまだありません
-              </div>
+              // データがない場合の表示
+              hotPrompts.length === 0 && (
+                <div className="col-span-full text-center text-gray-600 py-10 border border-dashed border-gray-800 rounded-lg">
+                  このジャンルのデータはまだありません
+                </div>
+              )
             )}
           </div>
         </div>

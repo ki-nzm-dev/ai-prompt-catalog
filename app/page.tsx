@@ -22,7 +22,7 @@ export default function Home() {
 
   useEffect(() => {
     const fetchPrompts = async () => {
-      // confirmedのみ取得（未分類はフロントで除外するか、ここでも除外可能）
+      // confirmedのみ取得
       const { data } = await supabase
         .from('m_prompts')
         .select('*')
@@ -34,8 +34,6 @@ export default function Home() {
   }, [])
 
   // ジャンルの重複なしリストを作成し、指定順序でソート
-  // データに存在しないジャンルもタブとして表示したい場合は GENRE_ORDER をそのまま使う
-  // ここでは「データが存在するものだけ」を表示するロジックにしています
   const availableGenres = Array.from(new Set(prompts.map(p => p.genre)));
   const sortedGenres = GENRE_ORDER.filter(g => availableGenres.includes(g));
   
@@ -68,6 +66,65 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#121212] text-white pb-80">
+      
+      {/* --- ヒーローセクション開始 --- */}
+      <section className="relative overflow-hidden pt-20 pb-24 md:pt-32 md:pb-32 bg-gradient-to-b from-blue-900/20 to-[#121212]">
+        {/* 背景の光の演出 */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-blue-600/10 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
+        
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold mb-8 animate-pulse">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+            </span>
+            Civitai Monthly Trends Integrated (2026-01-13)
+          </div>
+          
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-6 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-blue-400">
+            魔法のようなプロンプトを、<br className="hidden md:block" />選ぶだけで。
+          </h1>
+          
+          <p className="max-w-2xl mx-auto text-base md:text-xl text-gray-400 mb-10 leading-relaxed">
+            1,000枚以上の最新画像から抽出した統計データに基づき、<br className="hidden md:block" />
+            あなたの「作りたい」を最短距離で形にするAIプロンプト・アナライザー。
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button 
+              onClick={() => {
+                document.getElementById('tool-main')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-blue-900/40"
+            >
+              今すぐ作成を開始する
+            </button>
+            <div className="text-sm text-gray-500 font-mono">
+              v1.2.0: 400+ Verified Tags
+            </div>
+          </div>
+
+          {/* 特徴カード */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 text-left">
+            {[
+              { title: "Data Driven", desc: "感覚ではなく、数千件の利用統計に基づいたタグ選定", icon: "📊" },
+              { title: "Beginner Friendly", desc: "英語不要。日本語でパズルを組む感覚で構築可能", icon: "🧩" },
+              { title: "Realtime Trends", desc: "Civitai APIから常に最新の流行をキャッチアップ", icon: "🔥" }
+            ].map((feature, i) => (
+              <div key={i} className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-sm hover:border-blue-500/50 transition-colors">
+                <div className="text-3xl mb-4">{feature.icon}</div>
+                <h3 className="text-white font-bold mb-2">{feature.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{feature.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      {/* --- ヒーローセクション終了 --- */}
+
+      {/* ツール本体へのアンカー */}
+      <div id="tool-main" className="h-10"></div>
+
       {/* ヘッダーエリア */}
       <div className="bg-[#1e1e1e] border-b border-gray-800 p-6 sticky top-0 z-10 shadow-md">
         <div className="max-w-7xl mx-auto flex justify-between items-center">

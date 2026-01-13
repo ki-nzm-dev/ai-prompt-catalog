@@ -125,13 +125,20 @@ export default function Home() {
       {/* ツール本体へのアンカー */}
       <div id="tool-main" className="h-10"></div>
 
-      {/* ヘッダーエリア */}
+{/* ヘッダーエリア */}
       <div className="bg-[#1e1e1e] border-b border-gray-800 p-6 sticky top-0 z-10 shadow-md">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">AI Prompt Builder</h1>
-            <p className="text-xs text-gray-400 mt-1">ステップ順に選ぶだけで80点のプロンプトが完成します</p>
+          <div className="flex items-center gap-6">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">AI Prompt Builder</h1>
+              <p className="text-xs text-gray-400 mt-1">ステップ順に選ぶだけで80点のプロンプトが完成します</p>
+            </div>
+            {/* ↓ここを追加：ブログへのリンクボタン */}
+            <a href="/blog" className="hidden md:block px-4 py-2 rounded-full bg-gray-800 hover:bg-gray-700 text-sm font-bold text-gray-300 transition-colors border border-gray-700">
+              📝 Trend Reports
+            </a>
           </div>
+          
           <button 
             onClick={() => setSelectedPromptIds([])}
             className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded transition-colors"
